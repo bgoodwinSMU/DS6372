@@ -1,0 +1,207 @@
+---
+title: "Unit3 HW"
+author: "Turner"
+date: "12/16/2018"
+output: word_document
+---
+
+## HW Instructions
+
+The weekly HW assignments are designed to accomplish 2 goals for the MSDS student.  The first is to provide a series of conceptual and analtical questions so the student can get a feel for their current understanding of the unit.  The second goal is to introduce the students to standard functions and routines in R that effectively do the same things that the "Procs" do in SAS.
+
+R and SAS are both wonderful tools and as we go through the assignments, students will begin to recognize very quickly that they both have pros and cons. 
+
+The formatting of the HW is as follows:  
+  1.  A series of high level questions will be asked with either short answers or simple multiple choice responses.  
+  2.  Analytical questions will be provided but a short vignette example of how R functions work for a given topic or method will be given.  The student will then be asked a follow up question or two based on the output provided.  
+  3.  Thirdly, a new data set will be given to allow the student to gain some experience with a new data set from start to finish.
+  
+Solutions to the HW will be provided a day or two after the HW is submitted.  It is up to the student to "shore up" any confusion or missunderstanding of a topic.  Grading will be based on a combination of correctness, completion, and overall conciseness. 
+
+The student may provide there answers in a seperate word document.  Just make sure that it is easy to follow and that all questions have been addressed for the grader.  You are welcome to use R markdown, but it is not required.
+
+## ANOVA Conceptual questions
+
+  1.  State the necessary assumptions for Two Way ANOVA analysis to beconducted. Note: That addative versus non additivie is not a component of the assumptions
+  
+  2.  State in words what it means for there to be an "interaction" between two explanatory variables. Note: Do not explain the meaning in terms of a graph with parallel lines.  
+  
+  3.  What is the family wise error rate?  What is multiple testing and why is it an issue when conducting ANOVA type models such as Two Way ANOVA?
+  
+  4.  True or False?  The overall Type-III sums of squares F-test's allow the analyst to determine where specific differences lie between levels of the factor.
+  
+## Exercise #1  ACT Scores Revisited
+The first step in any analysis is appropriately describing the data both numerically and visually.  For a Two Way ANOVA analysis, one of the most helpful visual tools is the mean profile plot (with or without the raw data).
+The following code reads in the ACT data set from our pre live discussion and provides a handy, modifiable, function that can make a quick summary statistics table really quick. 
+  
+```{r summaries}
+setwd("D:/MSDS6372/HWMark")
+
+ACT<-read.csv("MathACT.csv")
+
+
+#Attaching the data set, creating a function, and creating a summary stats table.  Note: In line 44 below, you can add other statistics like median, IQR,etc.
+
+attach(ACT)
+mysummary<-function(x){
+  result<-c(length(x),mean(x),sd(x),sd(x)/length(x))
+  names(result)<-c("N","Mean","SD","SE")
+  return(result)
+}
+sumstats<-aggregate(Score~Background*Sex,data=ACT,mysummary)
+sumstats<-cbind(sumstats[,1:2],sumstats[,-(1:2)])
+sumstats
+```
+  
+With the three levels of background and two levels of sex status, the table provides the sample size, mean, standard deviation, and the means standard error for each of the 6 combinations of the two factors combined.  This can be used to take a quick look at the data to see if things are making sense.  Adding additional summaries like the max, min, and quartiles would be heplful as well. 
+  
+The above table may not be too aesthetically pleasing.  Luckily under the current format of the table, its quite easy to generate a means profile plot to visualize the data.  This graphic was most likely a major point of discussion during live session.  
+
+```{r meanplot}
+
+library(ggplot2)
+ggplot(sumstats,aes(x=Background,y=Mean,group=Sex,colour=Sex))+
+  ylab("ACT Score")+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=Mean-SE,ymax=Mean+SE),width=.1)
+
+```
+
+__HOMEWORK QUESTION__ 
+
+1.  Modify the previous R script so that the summary table also includeds the min, the max, and IQR.  These functions are all self explanatory...min(x), max(x), IQR(x).
+
+2. Create another means plot but rather than using the standard errors (SE) to make the error bars.  Make it with the raw standard deviations (SD).  Which graphic (compared to plot using SE) is more telling about the assumption of equal variances for the ANOVA model?  Give a little explanation for your answer.
+
+
+## Exercise #2  Conducting a Two Way ANOVA Analysis in R
+
+Since Two Way ANOVA's are techically just special cases of multiple linear regression, it's not to suprising that the same function call is used to build the model.  After viewing and exploring the data via Exercise 1.  The next step would be to fit a full nonaddative model, check the assumptions of the model, and then examine the type III sums of squares F tables.
+
+The following code fits the nonadditive two way anova model and then produces the first the main residual diagnostics for assumption checking. The syntax for including interaction terms is slightly different so please make note.
+```{r modelfit }
+model.fit<-aov(Score~Background+Sex+Background:Sex,data=ACT)
+par(mfrow=c(1,2))
+plot(model.fit$fitted.values,model.fit$residuals,ylab="Resdiduals",xlab="Fitted")
+qqnorm(model.fit$residuals)
+```
+
+The previous graphics are not very pretty.  We can use the ggplot2 package to jazz things up a bit.
+```{r , fig.height=2}
+library(gridExtra)
+myfits<-data.frame(fitted.values=model.fit$fitted.values,residuals=model.fit$residuals)
+
+#Residual vs Fitted
+plot1<-ggplot(myfits,aes(x=fitted.values,y=residuals))+ylab("Residuals")+
+  xlab("Predicted")+geom_point()
+
+#QQ plot of residuals  #Note the diagonal abline is only good for qqplots of normal data.
+plot2<-ggplot(myfits,aes(sample=residuals))+
+  stat_qq()+geom_abline(intercept=mean(myfits$residuals), slope = sd(myfits$residuals))
+
+#Histogram of residuals
+plot3<-ggplot(myfits, aes(x=residuals)) + 
+  geom_histogram(aes(y=..density..),binwidth=1,color="black", fill="gray")+
+  geom_density(alpha=.1, fill="red")
+
+grid.arrange(plot1, plot2,plot3, ncol=3)
+```
+
+
+As discussed in class, the residual diagnostics do not provide any concern about the assumptions of a two way anova analysis.  If there were, we would have to address those concerns via a transformation of the response or multiple analysis with and without outliers, etc.  Examining the type-III sums of squares F table we have:
+```{r}
+library(car)
+Anova(model.fit,type=3)
+```
+
+
+Writing contrasts are a little more cumbersome in R.  To help you guys out and alleviate the need to keep track of all of the zero's and one's, I've wrote a little script that allows you to just specify the contrast that you want in a slightly simpler way.  But first lets use some tools that provides a blanket lists of comparisons.  Since there is no significant interaction, we just need to examine each factor one at a time. To examine all pairwise comparisons for say "background", the following script provides the t-test results adjusted for multiple tests using Tukey's procedure.
+```{r}
+TukeyHSD(model.fit,"Background",conf.level=.95)
+```
+The table is helpful for quickly examining the results and getting the p-values and estimates.  Its always helpful to visualize.
+```{r}
+plot(TukeyHSD(model.fit,"Background",conf.level=.95))
+```
+
+If an interaction is present, you can rinse and repeat the code just using the interaction term instead.  This code below is for illustration, it makes no sense to do this on the ACT data set since the interaction F test is not significant.
+```{r}
+TukeyHSD(model.fit,"Background:Sex",conf.level=.95)
+plot(TukeyHSD(model.fit,"Background:Sex",conf.level=.95))
+
+```
+
+
+As discussed in class, including all possible combinations of comparisons may be too much and of little interest to the actual study at hand.  We can manually create the comparisons of interest and manual adjust the p-values through writing contrasts.  To help streamline this for you guys, I've included a little R script that makes the process a little more automated for you. 
+
+The following script allow you to write out your contrasts in a more verbal syntax. I'll run you through the most tedious scenario.  The script can be easily modified to handle simpler situations.  First things first, all you need to do is provide some details as to what comparisons you'd like to make.  Suppose, that if the interaction was significant, the only meaningful comparisons to make in the analysis comparing males versus females for each level of background.  
+```{r}
+
+library(lsmeans) #maybe need eemeans package
+contrast.factor<-~Background*Sex
+mycontrast<-c("amale-afemale","bmale-bfemale","cmale-cfemale")
+dat<-ACT
+
+
+```
+
+The above piece of code provides no output, but formats things for the following code to run.  The key player here is the "contrast.factor" and the "mycontrast" objects.  The contrast.factor piece is just specifiying what types of comparisons you would like to make. For example, if we only wanted to compare the background levels we would have just specified "~Background". The "mycontrast" object is where you get to specify what comparisons you would like to make.  For a single factor, you just simply write out the factor levels you want to compare with a subtration between them.  For an interaction type comparison the syntax depends on what was used in the contrast.factor object.  In our example, background is listed first, so when making comparisons the levels of background are concatenated to the levels of Sex before subtracting which combinations you want to compare.
+
+The following code is something I wrote that takes the information you specified above and creates a clean table of resutls with bonferroni adjusted p-values. This script can be reused over and over, just changing the initial starting script is all that is required.
+
+```{r}
+
+#Running a loop that determines the appropriate 0's and 1's for each 
+#contrast specified above.
+library(limma)
+final.result<-c()
+for( j in 1:length(mycontrast)){
+contrast.factor.names<-gsub(" ", "", unlist(strsplit(as.character(contrast.factor),split = "*", fixed = T))[-1])
+contrast.factor.2 <- vector("list", length(contrast.factor.names))
+for (i in 1:length(contrast.factor.names)) {
+  contrast.factor.2[[i]] <- levels(dat[, contrast.factor.names[i]])
+}
+new.factor.levels <- do.call(paste, c(do.call(expand.grid, 
+                                              contrast.factor.2), sep = ""))
+temp.cont<-mycontrast[j]
+contrast2 <- list(comparison = as.vector(do.call(makeContrasts, 
+                                                list(contrasts = temp.cont, levels = new.factor.levels))))
+
+contrast.result <- summary(contrast(lsmeans(model.fit, 
+                                            contrast.factor), contrast2, by = NULL))
+
+final.result<-rbind(final.result,contrast.result)
+}
+#Cleaning up and applying bonferroni correction to the number
+#of total comparisons investigated.
+final.result$contrast<-mycontrast
+final.result$bonf<-length(mycontrast)*final.result$p.value
+final.result$bonf[final.result$bonf>1]<-1
+
+final.result
+```
+
+__HOMEWORK QUESTION__
+
+1.  Consider comparing the mean ACT scores of males versus females specifically for background A.  Compare the outputs from the Tukey comparison result table to that of the output generated from my manual contrast maker.  Is the estimated differences the same?  Can you explain why are the adjusted p-values different for the two result tables?  One would suggest that we reject the null while the other would have us to fail to reject. (This is just a conceptual thinking question. The interaction term is not significant for this data analysis.)
+
+
+
+## Exercise #3  
+
+Lets examine the dta Exercise 13.17 from the statistical sleuth book.  The data set is easily accesable in R via the following package.
+
+```{r}
+library(Sleuth3)
+head(ex1317)
+```
+
+1.  Provide a means plot of the data.  Use this along with any additional information to comment on whether an addative or nonadditive model is probably the most appropriated.  If it is not obvious that is okay just do your best.
+
+2.  Fit a nonadditive 2 way anova model to the data set and provide the residual diagnostics.  Comment on the appropriateness of the current anova fit.
+
+3.  Provide the type 3 ANOVA F-tests.  Answer the following question using the table.  Do the potential changes in mean Iridium by strata depend on the depth?
+
+4.  Using multple testing techniques, determine what factors (or combinations) contribute to changes in mean iridium.
+  
