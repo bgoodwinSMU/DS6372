@@ -1,0 +1,198 @@
+---
+title: 'HW #2 DS6372'
+author: "Ben Goodwin"
+date: "1/20/2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## MLR Conceptual Questions 
+
+1.	State the necessary assumptions for a multiple linear regression model to be valid in terms of conducting hypothesis tests and providing prediction intervals.
+    1) There must be a linear relationship between the outcome variable and the independent variables.
+    2) The residuals are normally distributed
+    3) There cannot be multicollinearity.
+    4) The variance of error terms are similar across the values of the independent variables (homoscedasticity)
+Very generally, appearance to these rules will allow a model to be evaluated in a multiple linear regression setting.
+
+2. True
+
+3. Feature selection is intended to select the best subset of predictors.  These techniques are designed to explain the data in the best way possible, ideally this means fewer predictors.  More predictors add noise and can increase the cost.  We can also run into the issue of collinearity by having too many predictors.  There are a few different techniques for feature selection: backward elimination, forward selection, and stepwise regression.  I think that stepwise regression should not be done without an analyst due to its very nuanced process.  The steps aren't linked to the goals of a study and easily fall victim to missing the optimal model.  Additionally, this technique doesn't really address the question of interest.  Stepwise selection tends to pick models that are smaller and have the unintended consequence of removing predictors that may be useful to the question of interest, but due to the nature of stepwise selection, will remove a non-statistically significant, but useful predictor.  Feature selection methods on their own cannot be used to create ideal models without an analyst present who can take an objective look at the question of interest and the model.
+
+4. If the final model includes a third, fourth, and fifth level polynomial term the model will be very complex.  Adding more feature to a model will always increase training accuracy (low bias).  This model will have high variance, since the model is memorizing the training data. I would expect ASE to be higher on the testing data because the model was fit with more variables than necessary. 
+
+##Exercise 1 EDA
+
+```{r}
+#import some libraries
+library(ISLR)
+head(Auto)
+
+Auto$cylinders <- as.factor(Auto$cylinders)
+Auto$origin <- as.factor(Auto$origin)
+attach(Auto)
+
+summary(Auto)
+
+t(aggregate(mpg~cylinders,data = Auto,summary))
+
+t(aggregate(mpg~cylinders,data = Auto,mean))
+
+t(aggregate(mpg~cylinders,data = Auto,sd))
+
+par(mfrow=c(1,3))
+plot(horsepower,mpg,xlab = "horsepower",ylab = "mpg")
+new <- data.frame(horsepower=seq(30,300,.1))
+lines(seq(30,300,.1),predict(lm(mpg~horsepower),newdata = new),col="red",lwd=4)
+plot(as.factor(cylinders),mpg,xlab="cylinders",ylab="mpg",title="Auto Data Set",col=c(7,32,57,82,107))
+plot(weight,mpg)
+new2 <- data.frame(weight=seq(1600,5200,1))
+lines(seq(1600,5200,1),predict(lm(mpg~weight),newdata = new2),col="red",lwd=4)
+
+
+pairs(Auto[,-c(2,9)])
+
+pairs(Auto[,-c(2,9)],col=cylinders)
+
+library(car)
+
+Auto <- Auto[,-9]
+full.model <- lm(mpg~.,data=Auto)
+vif(full.model)[,3]^2
+
+
+```
+
+#Question 5
+
+Multicollinearity. appears to be a problem in this dataset.  Specifically with the displacement, horsepower, and weight variables.  Based on displacement and its very high VIF score, I believe this variable could be removed.  Thinking about the dataset, a larger engine probably weighs more and has more displacement and horsepower, so it makes sense these variables are related and would have issues with multicollinearity.   
+
+```{r}
+par(mfrow=c(1,3))
+plot(horsepower,mpg,xlab = "horsepower",ylab="mpg")
+new <- data.frame(horsepower=seq(30,300,.1))
+horse.model <- lm(mpg~horsepower)
+lines(seq(30,300,.1),predict(horse.model,newdata = new),col="red",lwd=4)
+plot(horse.model$fitted.values,horse.model$residuals,xlab = "Fitted Values",ylab = "Residuals")
+plot(horsepower,horse.model$residuals,xlab = "Horsepower",ylab = "Residuals")
+
+```
+
+```{r}
+par(mfrow=c(1,3))
+plot(horsepower,mpg,xlab = "horsepower",ylab = "mpg")
+new <- data.frame(horsepower=seq(30,300,.1))
+horse.model2 <- lm(mpg~horsepower +I(horsepower^2))
+plot(horse.model2$fitted.values,horse.model2$residuals,xlab = "Fitted Values",ylab="Residuals")
+plot(horsepower, horse.model2$residuals,xlab = "Horsepower",ylab = "Residuals")
+
+```
+
+```{r}
+par(mfrow=c(1,3))
+plot(horsepower,mpg,xlab="horsepower",ylab = "mpg",col=cylinders)
+new <- data.frame(horsepower=seq(30,300,.1))
+horse.model2 <- lm(mpg~horsepower+I(horsepower^2))
+lines(seq(30,300,.1),predict(horse.model2,newdata = new),col="red",lwd=4)
+plot(horse.model2$fitted.values,horse.model2$residuals,xlab = "Fitted Values",ylab = "Residuals")
+plot(horsepower,horse.model2$residuals,xlab="Horsepower",ylab = "Residuals")
+```
+
+```{r}
+par(mfrow=c(1,4))
+plot(horse.model2)
+```
+
+
+#Question 6
+
+```{r}
+#plot(mfrow=c(1,3))
+plot(x=horsepower,y=mpg,xlab = "horsepower",ylab = "mpg",col=cylinders)
+new <- data.frame(horsepower=seq(30,300,.1))
+horse.model3 <- lm(log(mpg)~horsepower+I(horsepower^2))
+
+lines(seq(30,300,.1),predict(horse.model3,newdata = new),col="red",lwd=4)
+plot(horse.model3$fitted.values,horse.model3$residuals,xlab = "Fitted Values",ylab = "Residuals")
+plot(horsepower,horse.model3$residuals,xlab="Horsepower",ylab="Residuals")
+
+
+
+par(mfrow=c(1,4))
+plot(horse.model3)
+summary(horse.model3)
+
+```
+
+There is no clear pattern to the residuals, they appear to be equally distributed throughout the plot and show no obvious shape indicating that the data does not show any departures from normality.  The transformation does not seem to correct the constant variance issue.I think that including the quadratic term is still beneficial to this model.  BAsed on the summary statistics, the model is significant as a whole and each of the predictors are as well.  
+
+
+# Question 7
+Question 7, part 2
+
+We must keep in mind that we deleted observations that had three or five cylinder engines, purely for our own convenience.  I think that this will make our data a bit noisier because we have selectively removed some data. We have also reduced any interesting trends that may arise from these data points.  
+
+```{r}
+library(leaps)
+#Part 3
+Auto <- Auto[-120,]
+set.seed(1234)
+index<-sample(1:dim(Auto)[1],192,replace=F)
+train<-Auto[index,]
+test<-Auto[-index,]
+reg.fwd=regsubsets(log(mpg)~displacement+weight+acceleration+year+origin,data=train,method="forward",nvmax=7)
+
+predict.regsubsets =function (object , newdata ,id ,...){
+  form=as.formula (object$call [[2]])
+  mat=model.matrix(form ,newdata )
+  coefi=coef(object ,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+testASE<-c()
+#note my index is to 20 since that what I set it in regsubsets
+
+for (i in 1:6){
+  predictions<-predict.regsubsets(object=reg.fwd,newdata=test,id=i) 
+  testASE[i]<-mean((log(test$mpg)-predictions)^2)
+}
+
+par(mfrow=c(1,1))
+plot(1:6,testASE,type="l",xlab="# of predictors",ylab="test vs train ASE",ylim=c(0.01,0.05))
+index<-which(testASE==min(testASE))
+points(index,testASE[index],col="red",pch=10)
+rss<-summary(reg.fwd)$rss
+lines(1:6,rss/100,lty=3,col="blue")  #Dividing by 100 since ASE=RSS/sample size
+
+
+reg.final=regsubsets(log(mpg)~displacement+weight+acceleration+year+origin,data=Auto,method="forward",nvmax=6)
+coef(reg.final,3)
+
+final.model<-lm(log(mpg)~weight+year+origin,data=Auto)
+summary(final.model)
+
+
+plot(exp(final.model$fitted.values),Auto$mpg,xlab="Predicted",ylab="AvgWinnings")
+lines(c(0,400000),c(0,400000),col="red")
+
+head(predict(final.model,Auto,interval="predict"))
+
+```
+
+Based on the above model, we need to use weight, year, and origin as predictors.
+
+```{r}
+#Part 4
+
+summary(final.model)
+plot(final.model)
+```
+
+Based on the plots above, I think that this model meets all assumptions and is suitable for analysis. 
