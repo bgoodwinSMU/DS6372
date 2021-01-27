@@ -1,0 +1,181 @@
+---
+title: "Homework 3 MSDS6372"
+author: "Ben Goodwin"
+date: "1/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1, Conceptual Questions
+
+Question 1 Response: 
+            Assumption 1: The populations from which the samples were obtained must be normally distributed or at least approximately normally distributed.
+            Assumption 2: The samples must be independent.
+            Assumption 3: The variances of the population must be equal 
+            Assumption 4: The groups must have equal sample sizes
+            
+Question 2 Response:
+            I like to think of interactions as an effect that happens when one of the explanatory variables interacts with another variable on a response variable.  A good example is found at https://www.statisticshowto.com/interaction-effect-interacting-variable/ and uses the effect of a diet drink on weight loss, and the effect of the diet pill on weight loss. With the interaction happening when the drink and pill are taken at the same time.  It seems plausible that the combination of the two could speed up weight loss, or even low it down.  This is an example of an interaction effect. 
+            
+Question 3 Response: 
+            Family-wise error rates are the probability of a type-I error.  These are also known as false discoveries and occur when performing multiple hypothesis tests.  In multiple testing it becomes an issue (For ANOVA/Two-Way ANOVA) because we are testing multiple hypotheses and typically each has an $\{alpha}$ level of 0.05, but since we are performing multiple tests we have to multiply this across all of our tests, so we have to reduce the overall level!
+            
+Question 4 Response: 
+            False- Type III tests for the presence of a main effect after the other main effect an interaction.
+            
+## Exercise 1
+
+```{r}
+ACT<-read.csv("MathACT.csv")
+#Attaching the data set, creating a function, and creating a summary stats table.  Note: In line 44 below, you can add other statistics like median, IQR,etc.
+attach(ACT)
+mysummary<-function(x){
+  result<-c(length(x),mean(x),sd(x),sd(x)/length(x))
+  names(result)<-c("N","Mean","SD","SE")
+  return(result)
+}
+sumstats<-aggregate(Score~Background*Sex,data=ACT,mysummary)
+sumstats<-cbind(sumstats[,1:2],sumstats[,-(1:2)])
+sumstats
+```
+
+```{r meanplot}
+library(ggplot2)
+ggplot(sumstats,aes(x=Background,y=Mean,group=Sex,colour=Sex))+
+  ylab("ACT Score")+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=Mean-SE,ymax=Mean+SE),width=.1)
+```
+            
+            
+## Homework Questions, Exercise 1
+
+```{r}
+#Question 1, Modify the previous R script so that the summary table also includes the min, the max, and IQR.
+mysummary<-function(x){
+  result<-c(length(x),mean(x),sd(x),sd(x),min(x),max(x),IQR(x)/length(x))
+  names(result)<-c("N","Mean","SD","SE","Min","Max","IQR")
+  return(result)
+}
+sumstats2<-aggregate(Score~Background*Sex,data=ACT,mysummary)
+sumstats2<-cbind(sumstats[,1:2],sumstats[,-(1:2)])
+sumstats2
+
+
+```
+
+```{r}
+#Question 2, Create another means plot but rather than using the standard errors (SE) to make the error bars.  Make it with the raw standard deviations (SD).  Which graphic (compared to plot using SE) is more telling about the assumption of equal variances for the ANOVA model?  Give a little explanation for your answer.
+
+ggplot(sumstats,aes(x=Background,y=Mean,group=Sex,colour=Sex))+
+  ylab("ACT Score")+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=Mean-SD,ymax=Mean+SD),width=.1)
+
+
+```
+
+I think that the SD plot is more telling about the assumption of equal variances for the ANOVA model.  Each answer useful questions, either about the population spread or the quality of the estimate of the mean. Personally, I think that either could be argued like many things in statistics.  However, the SD plot shows more evidence of variance and should be fully considered.  And while this may make us break away from our perfect assumptions, we need to evaluate all assumptions whether or not they agree with our intended statistical goals. 
+
+## Exercise 2
+
+The following code fits the nonadditive two way anova model and then produces the first the main residual diagnostics for assumption checking. The syntax for including interaction terms is slightly different so please make note.
+```{r modelfit }
+model.fit<-aov(Score~Background+Sex+Background:Sex,data=ACT)
+par(mfrow=c(1,2))
+plot(model.fit$fitted.values,model.fit$residuals,ylab="Resdiduals",xlab="Fitted")
+qqnorm(model.fit$residuals)
+```
+
+The previous graphics are not very pretty.  We can use the ggplot2 package to jazz things up a bit.
+```{r , fig.height=2}
+library(gridExtra)
+myfits<-data.frame(fitted.values=model.fit$fitted.values,residuals=model.fit$residuals)
+#Residual vs Fitted
+plot1<-ggplot(myfits,aes(x=fitted.values,y=residuals))+ylab("Residuals")+
+  xlab("Predicted")+geom_point()
+#QQ plot of residuals  #Note the diagonal abline is only good for qqplots of normal data.
+plot2<-ggplot(myfits,aes(sample=residuals))+
+  stat_qq()+geom_abline(intercept=mean(myfits$residuals), slope = sd(myfits$residuals))
+#Histogram of residuals
+plot3<-ggplot(myfits, aes(x=residuals)) + 
+  geom_histogram(aes(y=..density..),binwidth=1,color="black", fill="gray")+
+  geom_density(alpha=.1, fill="red")
+grid.arrange(plot1, plot2,plot3, ncol=3)
+```
+
+
+As discussed in class, the residual diagnostics do not provide any concern about the assumptions of a two way anova analysis.  If there were, we would have to address those concerns via a transformation of the response or multiple analysis with and without outliers, etc.  Examining the type-III sums of squares F table we have:
+```{r}
+library(car)
+Anova(model.fit,type=3)
+```
+
+
+Writing contrasts are a little more cumbersome in R.  To help you guys out and alleviate the need to keep track of all of the zero's and one's, I've wrote a little script that allows you to just specify the contrast that you want in a slightly simpler way.  But first lets use some tools that provides a blanket lists of comparisons.  Since there is no significant interaction, we just need to examine each factor one at a time. To examine all pairwise comparisons for say "background", the following script provides the t-test results adjusted for multiple tests using Tukey's procedure.
+```{r}
+TukeyHSD(model.fit,"Background",conf.level=.95)
+```
+The table is helpful for quickly examining the results and getting the p-values and estimates.  Its always helpful to visualize.
+```{r}
+plot(TukeyHSD(model.fit,"Background",conf.level=.95))
+```
+
+If an interaction is present, you can rinse and repeat the code just using the interaction term instead.  This code below is for illustration, it makes no sense to do this on the ACT data set since the interaction F test is not significant.
+```{r}
+TukeyHSD(model.fit,"Background:Sex",conf.level=.95)
+plot(TukeyHSD(model.fit,"Background:Sex",conf.level=.95))
+```
+
+
+As discussed in class, including all possible combinations of comparisons may be too much and of little interest to the actual study at hand.  We can manually create the comparisons of interest and manual adjust the p-values through writing contrasts.  To help streamline this for you guys, I've included a little R script that makes the process a little more automated for you. 
+
+The following script allow you to write out your contrasts in a more verbal syntax. I'll run you through the most tedious scenario.  The script can be easily modified to handle simpler situations.  First things first, all you need to do is provide some details as to what comparisons you'd like to make.  Suppose, that if the interaction was significant, the only meaningful comparisons to make in the analysis comparing males versus females for each level of background.  
+```{r}
+library(lsmeans) #maybe need eemeans package
+contrast.factor<-~Background*Sex
+mycontrast<-c("amale-afemale","bmale-bfemale","cmale-cfemale")
+dat<-ACT
+```
+
+The above piece of code provides no output, but formats things for the following code to run.  The key player here is the "contrast.factor" and the "mycontrast" objects.  The contrast.factor piece is just specifiying what types of comparisons you would like to make. For example, if we only wanted to compare the background levels we would have just specified "~Background". The "mycontrast" object is where you get to specify what comparisons you would like to make.  For a single factor, you just simply write out the factor levels you want to compare with a subtration between them.  For an interaction type comparison the syntax depends on what was used in the contrast.factor object.  In our example, background is listed first, so when making comparisons the levels of background are concatenated to the levels of Sex before subtracting which combinations you want to compare.
+
+The following code is something I wrote that takes the information you specified above and creates a clean table of resutls with bonferroni adjusted p-values. This script can be reused over and over, just changing the initial starting script is all that is required.
+
+## Homework Question
+
+1.  Consider comparing the mean ACT scores of males versus females specifically for background A.  Compare the outputs from the Tukey comparison result table to that of the output generated from my manual contrast maker.  Is the estimated differences the same?  Can you explain why are the adjusted p-values different for the two result tables?  One would suggest that we reject the null while the other would have us to fail to reject. (This is just a conceptual thinking question. The interaction term is not significant for this data analysis.)
+
+Background Sex      diff        lwr         upr       p adj
+a:male-a:female     2.3851626  -0.1797967   4.950122 0.0854058
+
+Contrast            Estimate  SE        DF    t.ratiopval   bonf
+amale-afemale       2.3851626 0.8980349 855   2.656  0.0081 0.0241653060
+
+From the Tukey comparison the difference is 2.3851626 and from the contrast table the difference is 2.3851626.  The estimate difference are the same.  My thinking leads me down a family-wise error rate tunnel, I am thinking that the bonferroni properly correct for this and tells us to fail to reject while the contrast looks at the individual contrasts.
+
+## Exercise 3
+
+```{r}
+library(Sleuth3)
+head(ex1317)
+```
+
+## Question 1, 
+
+```{r}
+
+
+ 
+
+ggplot(ex1317,aes(x=DepthCat,y=Iridium,group=Strata,colour=Strata))+
+  ylab("Iridium")+
+  geom_line()+
+  geom_point()+
+  geom_errorbar(aes(ymin=mean(Strata),ymax=mean(Strata)),width=.1)
+```
