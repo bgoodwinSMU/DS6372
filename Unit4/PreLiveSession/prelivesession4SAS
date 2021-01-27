@@ -1,0 +1,52 @@
+data Melanoma;                                                                                                                                                                      
+infile '\\Client\C$\Users\benjamingoodwin\Downloads\sunspots.csv' dlm=',' firstobs=2;                                                                                                        
+input Year Melanoma Sunspot;   
+Year_SAS = MDY(1,1, year);
+
+Format year_sas year4.; 
+run;                                                                                                                                                                                
+                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                         
+    *Modeling sunspot with AR(1);                                                                                                                                                                                                                                         proc autoreg data=Melanoma all plots(unpack);                                                                                                                             
+model Sunspot= /  method=ml;
+ods graphics on;
+ods trace on;
+output out=p p=yhat pm=ytrend
+lcl=lcl ucl=ucl; 
+run;
+
+ 
+title "Sunspot versus Years visualized";
+proc sgplot data=Melanoma;
+   series x=Year y=Sunspot ;
+run;
+title;;
+
+ *Modeling sunspot with AR(1);                                                                                                                                                                                                                                         proc autoreg data=Melanoma all plots(unpack);                                                                                                                             
+model Sunspot= / nlag=4 method=ml;
+ods graphics on;
+ods trace on;
+output out=p p=yhat pm=ytrend
+lcl=lcl ucl=ucl; 
+run;
+
+
+title1 "Forecasting Sales of Durable and Nondurable Goods";
+   
+proc forecast data=Melanoma interval=year lead=10 out=pred;
+var Sunspot;
+id Year_SAS;
+run;
+
+data Melanoma2;                                                                                                                                                                      
+infile '\\Client\C$\Users\benjamingoodwin\Downloads\sunspots2.csv' dlm=',' firstobs=2;                                                                                                        
+input Year Melanoma Sunspot;
+Year_SAS2 = MDY(1,1, year);
+
+Format year_sas2 year4.; 
+run;
+
+title "Sunspot versus Years visualized";
+proc sgplot data=Melanoma2;
+   series x=Year y=Sunspot ;
+run;
