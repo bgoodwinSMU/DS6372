@@ -110,7 +110,7 @@ grid.arrange(plot1, plot2,plot3, ncol=3)
 ```
 
 
-As discussed in class, the residual diagnostics do not provide any concern about the assumptions of a two way anova analysis.  If there were, we would have to address those concerns via a transformation of the response or multiple analysis with and without outliers, etc.  Examining the type-III sums of squares F table we have:
+As discussed in class, the residual diagnostics do not provide any concern about the assumptions of a two way anova analysis.  If there were, we would have to address those concerns via a transformation of the response or multiple analysis with and without outlines, etc.  Examining the type-III sums of squares F table we have:
 ```{r}
 library(car)
 Anova(model.fit,type=3)
@@ -143,9 +143,9 @@ mycontrast<-c("amale-afemale","bmale-bfemale","cmale-cfemale")
 dat<-ACT
 ```
 
-The above piece of code provides no output, but formats things for the following code to run.  The key player here is the "contrast.factor" and the "mycontrast" objects.  The contrast.factor piece is just specifiying what types of comparisons you would like to make. For example, if we only wanted to compare the background levels we would have just specified "~Background". The "mycontrast" object is where you get to specify what comparisons you would like to make.  For a single factor, you just simply write out the factor levels you want to compare with a subtration between them.  For an interaction type comparison the syntax depends on what was used in the contrast.factor object.  In our example, background is listed first, so when making comparisons the levels of background are concatenated to the levels of Sex before subtracting which combinations you want to compare.
+The above piece of code provides no output, but formats things for the following code to run.  The key player here is the "contrast.factor" and the "mycontrast" objects.  The contrast.factor piece is just specifiying what types of comparisons you would like to make. For example, if we only wanted to compare the background levels we would have just specified "~Background". The "mycontrast" object is where you get to specify what comparisons you would like to make.  For a single factor, you just simply write out the factor levels you want to compare with a subtraction between them.  For an interaction type comparison the syntax depends on what was used in the contrast.factor object.  In our example, background is listed first, so when making comparisons the levels of background are concatenated to the levels of Sex before subtracting which combinations you want to compare.
 
-The following code is something I wrote that takes the information you specified above and creates a clean table of resutls with bonferroni adjusted p-values. This script can be reused over and over, just changing the initial starting script is all that is required.
+The following code is something I wrote that takes the information you specified above and creates a clean table of results with bonferroni adjusted p-values. This script can be reused over and over, just changing the initial starting script is all that is required.
 
 ## Homework Question
 
@@ -166,16 +166,75 @@ library(Sleuth3)
 head(ex1317)
 ```
 
-## Question 1, 
+## Question 1,  Provide a means plot of the data.  Use this along with any additional information to comment on whether an addative or nonadditive model is probably the most appropriated.  If it is not obvious that is okay just do your best.
+
 
 ```{r}
+mysummary<-function(x){
+  result<-c(length(x),mean(x),sd(x),sd(x),min(x),max(x),IQR(x)/length(x))
+  names(result)<-c("N","Mean","SD","SE","Min","Max","IQR")
+  return(result)
+}
+sumstats2<-aggregate(Iridium~DepthCat*Strata,data=ex1317,mysummary)
+sumstats2<-cbind(sumstats2[,1:2],sumstats2[,-(1:2)])
+sumstats2
 
-
- 
-
-ggplot(ex1317,aes(x=DepthCat,y=Iridium,group=Strata,colour=Strata))+
+ggplot(sumstats2,aes(x=DepthCat,y=Mean,group=Strata,colour=Strata))+
   ylab("Iridium")+
   geom_line()+
   geom_point()+
-  geom_errorbar(aes(ymin=mean(Strata),ymax=mean(Strata)),width=.1)
+  geom_errorbar(aes(ymin=Mean-SE,ymax=Mean+SE),width=.1)
 ```
+
+From this plot and the data in the ex1317 df, I believe that this model is best suited to an non-additive model.  This plot is most similar to some of the plots from the text where an additive model was chosen. I must also admit, this isn't immediately obvious to me, the interaction makes me think non-additive.   
+
+## Question 2, Fit a nonadditive 2 way anova model to the data set and provide the residual diagnostics.  Comment on the appropriateness of the current anova fit.
+
+```{r}
+ex1317$Iridium <- as.integer(ex1317$Iridium)
+nonadd <- aov(Iridium~DepthCat*Strata,data=ex1317)
+summary(nonadd)
+
+#1) Homogeneity of variances
+plot(nonadd,1)
+
+leveneTest(Iridium~DepthCat*Strata,data=ex1317)
+#Homogeneity of variance can be assumed
+
+
+#2) Normality
+plot(nonadd,2)
+#This seems to follow a general normal distribution
+
+```
+
+Based on the above, the current anova fit is appropriate.  We have homogeneous variance, normality of data, we assume independent samples, and the groups have equal sample sizes.  
+
+## Question 3, Provide the type 3 ANOVA F-tests.  Answer the following question using the table.  Do the potential changes in mean Iridium by strata depend on the depth?
+
+```{r}
+Anova(nonadd,type=3)
+```
+
+We reject the null hypothesis of equal population means and conclude that there is a significant difference Iridium means.  The F value is 4.1554, with a p-value of 0.01306.
+
+## Question 4, Using multple testing techniques, determine what factors (or combinations) contribute to changes in mean iridium.
+
+```{r}
+
+TukeyHSD(nonadd,"DepthCat:Strata",conf.level=.95)
+plot(TukeyHSD(nonadd,"DepthCat:Strata",conf.level=.95))
+
+TukeyHSD(nonadd,"DepthCat",conf.level=.95)
+plot(TukeyHSD(nonadd,"DepthCat",conf.level=.95))
+
+TukeyHSD(nonadd,"Strata",conf.level=.95)
+plot(TukeyHSD(nonadd,"Strata",conf.level=.95))
+
+```
+
+From the above tables and plots we can see that some factors contribute to mean iridium.  We can see that there is an interaction between certain combinations of DepthCat and Strata Limestone-3:Limestone with a P-value of 0.0165190.We also have Shale-6:Limestone with a P-value of 0.0062023.  
+
+With just DepthCat we can see there is a significant difference in 3-1 with a P-value of 0.0284301, 5-3 with a P-value of 0.0040704, 6-3 with a P-value of 0.0014654.
+
+With strata we can see that there is a significant difference between Shale-Lime with a P-value of 0.0141989.
