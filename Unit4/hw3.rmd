@@ -240,3 +240,5 @@ From the above tables and plots we can see that some factors contribute to mean 
 With just DepthCat we can see there is a significant difference in 3-1 with a P-value of 0.0284301, 5-3 with a P-value of 0.0040704, 6-3 with a P-value of 0.0014654.
 
 With strata we can see that there is a significant difference between Shale-Lime with a P-value of 0.0141989.
+
+And that's it for this week!
