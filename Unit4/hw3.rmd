@@ -2,7 +2,9 @@
 title: "Homework 3 MSDS6372"
 author: "Ben Goodwin"
 date: "1/27/2021"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -21,7 +23,7 @@ Question 2 Response:
             I like to think of interactions as an effect that happens when one of the explanatory variables interacts with another variable on a response variable.  A good example is found at https://www.statisticshowto.com/interaction-effect-interacting-variable/ and uses the effect of a diet drink on weight loss, and the effect of the diet pill on weight loss. With the interaction happening when the drink and pill are taken at the same time.  It seems plausible that the combination of the two could speed up weight loss, or even low it down.  This is an example of an interaction effect. 
             
 Question 3 Response: 
-            Family-wise error rates are the probability of a type-I error.  These are also known as false discoveries and occur when performing multiple hypothesis tests.  In multiple testing it becomes an issue (For ANOVA/Two-Way ANOVA) because we are testing multiple hypotheses and typically each has an $\{alpha}$ level of 0.05, but since we are performing multiple tests we have to multiply this across all of our tests, so we have to reduce the overall level!
+            Family-wise error rates are the probability of a type-I error.  These are also known as false discoveries and occur when performing multiple hypothesis tests.  In multiple testing it becomes an issue (For ANOVA/Two-Way ANOVA) because we are testing multiple hypotheses and typically each has an ${\alpha}$ level of 0.05, but since we are performing multiple tests we have to multiply this across all of our tests, so we have to reduce the overall level!
             
 Question 4 Response: 
             False- Type III tests for the presence of a main effect after the other main effect an interaction.
