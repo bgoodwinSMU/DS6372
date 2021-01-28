@@ -241,4 +241,5 @@ With just DepthCat we can see there is a significant difference in 3-1 with a P-
 
 With strata we can see that there is a significant difference between Shale-Lime with a P-value of 0.0141989.
 
-And that's it for this week!
+And that's it for this week!!
+-Ben
