@@ -159,7 +159,7 @@ a:male-a:female     2.3851626  -0.1797967   4.950122 0.0854058
 Contrast            Estimate  SE        DF    t.ratiopval   bonf
 amale-afemale       2.3851626 0.8980349 855   2.656  0.0081 0.0241653060
 
-From the Tukey comparison the difference is 2.3851626 and from the contrast table the difference is 2.3851626.  The estimate difference are the same.  My thinking leads me down a family-wise error rate tunnel, I am thinking that the bonferroni properly correct for this and tells us to fail to reject while the contrast looks at the individual contrasts.
+From the Tukey comparison the difference is 2.3851626 and from the contrast table the difference is 2.3851626.  The estimate differences are the same.  My thinking leads me down a family-wise error rate tunnel, I am thinking that the bonferroni properly correct for this and tells us to fail to reject while the contrast looks at the individual contrasts.
 
 ## Exercise 3
 
