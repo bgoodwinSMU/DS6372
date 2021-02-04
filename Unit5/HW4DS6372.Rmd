@@ -1,0 +1,336 @@
+---
+title: "Homework 4 MSDS6372"
+author: "Ben Goodwin"
+date: "2/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1, Time series conceptual questions
+
+1) For a time series to stationary there are a few requirements, the first being that its properties do not depend on the time at which the series is observed.  This essentially means that time series with trends or seasonality are not stationary. The series should have cyclic behavior should be considered stationary.  A stationary time series should have no predictable patterns over the long-term.
+
+In short:
+Constant mean
+Constant variance
+Constant autocorrelations
+
+The series should also be approximately horizontal with constant variance.
+
+2) True 
+
+3) Serially correlated observations have a few drawbacks, with the main one being issues with hypothesis testing.  Serial correlation causes the estimated variances of the regression coefficients to be biased, and then leads to unreliable hypothesis testing.  In essence this causes t-statistics to seem like they are more significant than they really are.
+
+4) A major advantage of a serially correlated observations can indicate that a observations may not be random.  This can be really useful because then the analyst can quantify these observations and reduce the error since the observations are no longer considered noisy.
+
+5) The Durbin-Watson test is a test statistic used to detect the presence of autocorrelation at lag 1 in the residuals.  The test is useful because autocorrelation is the similarity of a time series over successive time intervals which can lead to underestimates of the standard error and can cause predictors to report being overly significant as I discussed in question 3.
+
+
+## Exercise 1
+
+```{r}
+AR1<-arima.sim(list(ar=c(0.8)),10000) #AR1 is just a vector of values.  They will be centered around 0 unless we add a shift or include some other source of variation like a predictor.
+par(mfrow=c(1,3))
+plot(1:10000,AR1,type="l")
+acf(AR1,main="ACF")
+pacf(AR1,main="PACF")
+
+```
+
+# Question 6
+
+The simulated data exhibits the same behaviors in the ACF and PACF plots that an AR(1) does.  The lag1 autocorrelation value is roughly 0.8.  We can verify this based on the plots above.  
+
+# Question 7
+
+```{r}
+#QUestion 7, Round 1
+AR1<-arima.sim(list(ar=c(0.8)),50) #AR1 is just a vector of values.  They will be centered around 0 unless we add a shift or include some other source of variation like a predictor.
+par(mfrow=c(1,3))
+plot(1:50,AR1,type="l")
+acf(AR1,main="ACF")
+pacf(AR1,main="PACF")
+
+```
+
+```{r}
+#QUestion 7, Round 2
+AR1<-arima.sim(list(ar=c(0.8)),50) #AR1 is just a vector of values.  They will be centered around 0 unless we add a shift or include some other source of variation like a predictor.
+par(mfrow=c(1,3))
+plot(1:50,AR1,type="l")
+acf(AR1,main="ACF")
+pacf(AR1,main="PACF")
+
+```
+
+```{r}
+#Question 7, Round 3
+AR1<-arima.sim(list(ar=c(0.8)),50) #AR1 is just a vector of values.  They will be centered around 0 unless we add a shift or include some other source of variation like a predictor.
+par(mfrow=c(1,3))
+plot(1:50,AR1,type="l")
+acf(AR1,main="ACF")
+pacf(AR1,main="PACF")
+
+```
+
+Based on the repetition of the code above, with a smaller dataset the differences in ACF and PACF are very different.  The differences are due to the small sample sizes, the AR1 plot is very different and its harder to see the area where the values seem to find an average.
+
+# Question 8
+```{r}
+#Question 8
+AR1<-arima.sim(list(ar=c(0.0)),50) #AR1 is just a vector of values.  They will be centered around 0 unless we add a shift or include some other source of variation like a predictor.
+par(mfrow=c(1,3))
+plot(1:50,AR1,type="l")
+acf(AR1,main="ACF")
+pacf(AR1,main="PACF")
+
+```
+
+Since there is no serial correlation present in the data, this code adequately represents the results from actually fitting a time series model to the data.  The residuals did a good job behaving in an unexciting matter.
+
+# Question 9
+
+```{r}
+#AR2 Behavior
+rho1<-.8
+rho2<-.6
+a1<-(rho1*(1-rho2)/(1-rho1^2))
+a2<-(rho2-rho1^2)/(1-rho1^2)
+AR2<-arima.sim(list(ar=c(a1,a2)),10000)
+par(mfrow=c(1,3))
+plot(1:10000,AR2,type="l")
+acf(AR2)
+pacf(AR2,main="PACF")
+```
+
+Rules of thumb for AR(2) model.  Based on the plots of the ACF and the PACF, these plots meet the general rules, including the ACF plot tailing off gradually, and the PACF plot cutting off after p lags
+
+```{r}
+#AR3 Behavior
+a1<-1.5
+a2<--1.21
+a3<-.46
+AR3<-arima.sim(list(ar=c(a1,a2,a3)),10000)
+par(mfrow=c(1,3))
+plot(1:10000,AR3,type="l")
+acf(AR3,main="ACF")
+pacf(AR3,main="PACF")
+
+```
+
+Rules of thumb for AR(3) model.  Based on the plots of the ACF and the PACF we have a few issues, not meeting the general rules of thumb. The first plot's ACF does not tail off gradually, and does not cut off after p lags.
+
+```{r}
+#ARMA(3,2) Behavior
+a1<-1.5
+a2<--1.21
+a3<-.46
+b1<--.2
+b2<--.9
+ARMA32<-arima.sim(list(ar=c(a1,a2,a3),ma=c(b1,b2)),10000)
+par(mfrow=c(1,3))
+plot(1:10000,ARMA32,type="l")
+acf(ARMA32,main="ACF")
+pacf(ARMA32,main="PACF")
+```
+
+Rules of thumb for ARMA(3,2) model.  Based on the plots of the ACF and the PACF, these plots meet the general rules, including the ACF plot tailing off gradually.  The PACF plot follows the rule of thumb of trailing off gradually.
+
+```{r}
+#MA(2) (Behavior)
+b1<- .2
+b2<- .9
+MA2<-arima.sim(list(ma=c(b1,b2)),10000)
+par(mfrow=c(1,3))
+plot(1:10000,MA2,type="l")
+acf(MA2,main="ACF")
+pacf(MA2,main="PACF")
+
+
+```
+
+Rules of thumb for MA(2) model.  Based on the plots of the ACF and the PACF, these plots follow the general rules.  The ACF plot cuts off after q lags, and the PACF plot trails off gradually.
+
+# Exercise 3
+
+```{r}
+library(tseries)
+library(forecast)
+library(ggplot2)
+bills<-read.csv("ElectricBill.csv")
+head(bills)
+
+bills$DateIndex<-1:nrow(bills)
+
+ggplot()+geom_line(data=bills,aes(x=DateIndex,y=Bill))
+
+attach(bills)
+Acf(Bill)
+Pacf(Bill)
+
+library(car)
+durbinWatsonTest(lm(Bill~1),max.lag=4)
+
+AR1<-arima(Bill,order=c(1,0,0))
+AR2<-arima(Bill,order=c(2,0,0))
+AR3<-arima(Bill,order=c(3,0,0))
+
+tsdisplay(residuals(AR1),lag.max=15,main="AR(1) Resid. Diagnostics")
+
+```
+
+## Question 10
+
+```{r}
+#Fit AR(4) model
+AR4 <- arima(Bill,order = c(4,0,0))
+
+#Fit AR(5) model
+AR5 <- arima(Bill,order = c(5,0,0))
+
+#Look at residual diagnostics of all 5 models
+
+tsdisplay(residuals(AR1),lag.max=15,main="AR(1) Resid. Diagnostics")
+tsdisplay(residuals(AR2),lag.max=15,main="AR(2) Resid. Diagnostics")
+tsdisplay(residuals(AR3),lag.max=15,main="AR(3) Resid. Diagnostics")
+tsdisplay(residuals(AR4),lag.max=15,main="AR(4) Resid. Diagnostics")
+tsdisplay(residuals(AR5),lag.max=15,main="AR(5) Resid. Diagnostics")
+
+```
+
+## Question 11
+
+```{r}
+AIC(AR1)
+AIC(AR2)
+AIC(AR3)
+AIC(AR4)
+AIC(AR5)
+```
+
+Based on the above output, it seems that AR(4) performs the best in the metrics we are concerned with.  The AIC from AR(4) is 458.2644.  The residual diagnostics are starting to show the evidence of a more uncorrelated time series.  The ACF are PACF are looking as we would like an uncorrelated time series. 
+
+```{r}
+ARIMA.fit<-auto.arima(Bill,seasonal=FALSE)
+ARIMA.fit
+
+ARIMA.fit<-auto.arima(Bill,seasonal=FALSE,stepwise=FALSE)
+ARIMA.fit
+
+plot(forecast(ARIMA.fit,h=10))
+points(1:length(Bill),fitted(ARIMA.fit),type="l",col="blue")
+
+```
+
+## Question 12
+
+```{r}
+plot(forecast(AR1,h=10))
+points(1:length(Bill),fitted(ARIMA.fit),type="l",col="blue")
+```
+
+The confidence bands on ARIMA(1,0,0) are much wider and indicate less precision with the wider bands.  Additionally, the line is less specific and seems to just indicate a general linear trend.
+
+## Question 13
+
+```{r}
+plot(forecast(ARIMA.fit,h=100))
+points(1:length(Bill),fitted(ARIMA.fit),type="l",col="blue")
+```
+
+I think that this forecast is reasonable given the request.  The data seems to follow the same trend up until about 70 on the x axis.  Then the data dissipates.  
+
+```{r}
+plot(AvgTemp,Bill,xlab="Avg. Temperature")
+ols<-lm(Bill~AvgTemp)
+abline(ols)
+text(80,200,paste("Cor=",round(cor(Bill,AvgTemp),2)))
+
+holdout.test<-window(ts(Bill),start=36)
+train<-Bill[1:35]
+predictor<-AvgTemp[1:35]
+simpleols<-arima(train,order=c(0,0,0),xreg=predictor)
+tsdisplay(residuals(simpleols),lag.max=15,main="Resid. Diagnostics of OLS")
+
+ARIMA.with.Pred<-auto.arima(train,xreg=predictor,stepwise=FALSE)
+ARIMA.with.Pred
+
+tsdisplay(residuals(ARIMA.with.Pred),lag.max=15,main="Resid. Diagnostics with AR(4)")
+
+
+plot(forecast(ARIMA.with.Pred,h=5,xreg=matrix(AvgTemp[36:40])))
+
+
+points(1:length(train),fitted(ARIMA.with.Pred),type="l",col="blue")
+points(1:40,Bill,type="l")
+
+
+newpred<-as.matrix(cbind(predictor,predictor^2))
+colnames(newpred)<-c("Pred","Pred2")
+ARIMA.with.Pred2<-auto.arima(train,xreg=newpred,stepwise=FALSE)
+ARIMA.with.Pred2
+
+tsdisplay(residuals(ARIMA.with.Pred2),lag.max=15,main="Resid. Diagnostics AR(4) Quadratic")
+
+test.pred<-as.matrix(cbind(AvgTemp[36:40],AvgTemp[36:40]^2))
+colnames(test.pred)<-c("Pred","Pred2")
+plot(forecast(ARIMA.with.Pred2,h=5,xreg=test.pred))
+points(1:length(train),fitted(ARIMA.with.Pred2),type="l",col="blue")
+points(1:40,Bill,type="l")
+
+casts.avgtemp<-forecast(ARIMA.with.Pred,h=5,xreg=matrix(AvgTemp[36:40]))
+accuracy(casts.avgtemp,Bill[36:40])
+
+cast.avgtemp.quad<-forecast(ARIMA.with.Pred2,h=5,xreg=test.pred)
+accuracy(cast.avgtemp.quad,Bill[36:40])
+
+#View(AvgTemp)
+```
+
+
+## Question 14
+
+```{r}
+holdout.test<-window(ts(Bill),start=36)
+train<-Bill[1:35]
+predictor<-AvgTemp[1:35]
+simpleols<-arima(train,order=c(0,0,0),xreg=predictor)
+tsdisplay(residuals(simpleols),lag.max=15,main="Resid. Diagnostics of OLS")
+
+ARIMA.with.Pred<-auto.arima(train,xreg=predictor,stepwise=FALSE)
+ARIMA.with.Pred
+
+tsdisplay(residuals(ARIMA.with.Pred),lag.max=15,main="Resid. Diagnostics with AR(4)")
+
+
+plot(forecast(ARIMA.with.Pred,h=5,xreg=matrix(AvgTemp[36:40])))
+
+
+points(1:length(train),fitted(ARIMA.with.Pred),type="l",col="blue")
+points(1:40,Bill,type="l")
+
+
+newpred<-as.matrix(cbind(predictor,predictor^2))
+colnames(newpred)<-c("Pred","Pred2")
+ARIMA.with.Pred2<-auto.arima(train,xreg=newpred,stepwise=FALSE)
+ARIMA.with.Pred2
+
+tsdisplay(residuals(ARIMA.with.Pred2),lag.max=15,main="Resid. Diagnostics AR(4) Quadratic")
+
+test.pred<-as.matrix(cbind(AvgTemp[36:40],AvgTemp[36:40]^2))
+colnames(test.pred)<-c("Pred","Pred2")
+plot(forecast(ARIMA.with.Pred2,h=5,xreg=test.pred))
+points(1:length(train),fitted(ARIMA.with.Pred2),type="l",col="blue")
+points(1:40,Bill,type="l")
+
+casts.avgtemp<-forecast(ARIMA.with.Pred,h=5,xreg=matrix(AvgTemp[36:40]))
+accuracy(casts.avgtemp,Bill[36:40])
+
+cast.avgtemp.quad<-forecast(ARIMA.with.Pred2,h=5,xreg=test.pred)
+accuracy(cast.avgtemp.quad,Bill[36:40])
+
+```
+
