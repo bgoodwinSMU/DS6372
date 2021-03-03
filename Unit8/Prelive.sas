@@ -147,6 +147,11 @@ lsmeans Group /pdiff adjust=tukey plot=meanplot(connect cl) lines;
 run;
 quit;
 
+*3)Provide a scatterplot for Carrier vs Non ;
+   proc sgplot data=Hemophil;
+   title 'Carrier Vs Non Carrier';
+   scatter x=Activity y=Antigen / group=Group;
+run;
 
 
 
