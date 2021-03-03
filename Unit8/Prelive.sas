@@ -153,6 +153,9 @@ quit;
    scatter x=Activity y=Antigen / group=Group;
 run;
 
-
-
-
+ods select Cov PearsonCorr;
+proc corr data=Hemophil noprob outp=OutCorr /** store results **/
+          nomiss /** listwise deletion of missing values **/
+          cov;   /**  include covariances **/
+var Group Activity Antigen;
+run;
