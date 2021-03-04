@@ -1,4 +1,3 @@
-
 Title1 "Hemophilia Data";
 Proc Format;
  Value Groups 1="Noncarriers" 2="Carriers";
@@ -91,6 +90,12 @@ proc means data=Hemophil nmiss mean std stderr lclm uclm median min max qrange m
 class Group;
 var Activity;
 run;
+
+proc means data=Hemophil nmiss mean std stderr lclm uclm median min max qrange maxdec=2;
+class Group;
+var Antigen;
+run;
+
 
 *2) Run single One Way ANOVA models for each variable.  
 Perform residual diagnostics and make appropriate transformations if necessary to ensure each set of 
