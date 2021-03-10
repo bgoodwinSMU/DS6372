@@ -1,0 +1,168 @@
+---
+title: "Unit 9 HW"
+author: "Turner"
+date: "3/4/2019"
+output: word_document
+---
+
+
+## PCA Conceptual questions
+
+  1.  TRUE/FALSE  Principle component analysis is a predictive modeling technique such as linear regression and lda.
+  2.  TRUE or FALSE?  Technically speaking, PCA should not be applied to categorical variables.
+  3.  An analyst conducts a pca on continuous variables 1 through 20 and settled on reducing the variable down to 4.  The analyst then proceeds to conduct a linear regression using the 4 pcs components as predictors and the response is variable 1.  Why is this a horrible idea? 
+  4.  Why is it important to conduct PCA on standardized variables (aka using the correlation matrix)?
+  
+  
+
+## Exercise #1  PCA Basics
+The example conducted in class did not do a very good job of illustrating the interpretation goals of PCA.  For this reason, we will switch to a baseball data set to go over the basics and play around with interpretation.  The baseball data set is located in the Lahman package.  The data set is quite comprehensive having baseball player statistics dating back to 1871. We are going to examine the earliest year, 2016, by itself.  Lets take a quick summary to see what variables we have. 
+
+```{r}
+library(Lahman)
+data(Batting)
+index<-which(Batting$yearID==2016)
+Bat16<-Batting[index,]
+summary(Bat16)
+```
+
+For those of you who do not know too much about baseball, the first 5 variables are just general information, G is the number of games played while the rest are information for players batting ability.  G is games, AB is number of batting attempts, R-Runs, H-hits, X2B and X3B are doubles and triples, HR-homeruns, RBI-Runs Batted In.  These are all general information on how well the batters can hit the ball.  SB-stolen bases and CS- caught stealing are statistics about a players ability to run the bases, BB and IBB are when the batter gets a walk, HBP is hit by a pitch, SH and SF are sacrifice hit and fly's where the player doesn't get a hit but their hit is still productive, and lastley GIDP is grounded into double plays. 
+
+Sports data sets lend themselves well to PCA.  We will use this example to go through similar concepts discussed in class. For starters lets just start off with just a few variables in the set to verify PCA is doing what we expect it to.  Here is a quick scatterplot matrix.  The variables here are highly correlated with each other.
+
+
+
+```{r}
+reduced<-Bat16[,6:10]
+pairs(reduced)
+
+```
+
+Let's take a quick look at the summary statistics and in particular lets calculate the variance of each variable and add them up to obtain the total variance.
+```{r}
+apply(reduced,2,summary)
+var.raw<-apply(reduced,2,var)
+var.raw
+#Total variance
+sum(var.raw)
+```
+
+We have been talking about the covariance matrix a lot lately.  An estiamte for any given set of continouos variables can be obtained using the cov function.  You can see that the diagonals of this matrix are the same as the variances calculated one at a time from before.
+
+```{r}
+cov(reduced)
+#Another way to get total variance
+sum(diag(cov(reduced)))
+```
+
+Running PCA is relatively straight forward.  The following script conducts a PCA using the covariance matrix (nonstandardarized variables) and stores the results in an object.  This object contains the eigenvectors, eigenvalue, and the new principle component vectors.  Lets start by producing a correlation matrix to verify that new principle component variables are uncorrelated.
+
+```{r}
+pc.result<-prcomp(reduced,scale.=FALSE)
+pc.scores<-pc.result$x
+pairs(pc.scores)
+cor(pc.scores)
+```
+
+We can again verify that the total variance in the new PC variables is exactly the same as the original data.  The eigenvectors are stored inside of "pc.result" as well in the "rotation" object.
+```{r}
+var.pca<-apply(pc.scores,2,var)
+var.pca
+#Total Variance of PC's
+sum(var.pca)
+#Total Variance of Original Variables.
+sum(var.raw)
+
+#List of eigenvectors
+pc.result$rotation
+```
+A scree plot of the eigenvalues used to determine how many pc's to keep can be plotted in the following way:
+```{r}
+par(mfrow=c(1,2))
+eigenvals<-(pc.result$sdev)^2
+plot(1:5,eigenvals/sum(eigenvals),type="l",main="Scree Plot",ylab="Prop. Var. Explained")
+cumulative.prop<-cumsum(eigenvals/sum(eigenvals))
+plot(1:5,cumulative.prop,type="l",main="Cumulative proportion",ylim=c(0,1))
+par(mfrow=c(1,1))
+
+```
+Since all of the variables are not on the same scale, we see a very similar phenomenon that we discussed in the pre live session.  To conduct the pca on the correlation matrix, just set scale.=TRUE inside of the prcomp function.
+
+## HW Assignment #1
+1.  Conduct the PCA analysis but use the entire set of variables starting with the column 6, the Games played variable, all the way down to the end at GIDP.  Provide a scree plot and determine the amount of PC's needed to retain approximately 90% of the total variation in the data set.
+
+2.  Provide the eigenvector matrix and examine the loading (coefficients) that determine the linear combinations of each principle component.  Veryify that PC1 is eseentially a weighted average of all the variables together (minus the SH, sacrifice hit variable.)  
+
+3.  Verify that PC2 has big negative loadings on triples (X3B), stolen bases (SB), caught stealing (CS), and sacrifice hits (SH).  This variable could be interpreted to be a general indication of a players speed or general utility since all of the variables require situation awareness and running ability. (You dont need to provide an answer here, just verify))
+
+
+##PCA as an exploratory technique for Classification
+This exercise is designed to walk you through how PCA can be used as an informative unsupervised analysis of your predictors to get a high level view of whether the predictors are actually going to do a good job or not before a predictive model for categorical responses is even applied.
+
+The following data set is a breast cancer data set that has numerous measurements taken from tumor biopsies.  The goal of using this data set is to predict using the metrics alone if the biopsy is cancer or not.  When continuous variables are available it is often helpful to create a pairs plot of data color coded by the response status (Diagnostis).  The first variable is an id number and is not needed.
+
+```{r}
+bc<-read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data",header=F,sep=",")
+names(bc)<- c('id_number', 'diagnosis', 'radius_mean', 
+              'texture_mean', 'perimeter_mean', 'area_mean', 
+              'smoothness_mean', 'compactness_mean', 
+              'concavity_mean','concave_points_mean', 
+              'symmetry_mean', 'fractal_dimension_mean',
+              'radius_se', 'texture_se', 'perimeter_se', 
+              'area_se', 'smoothness_se', 'compactness_se', 
+              'concavity_se', 'concave_points_se', 
+              'symmetry_se', 'fractal_dimension_se', 
+              'radius_worst', 'texture_worst', 
+              'perimeter_worst', 'area_worst', 
+              'smoothness_worst', 'compactness_worst', 
+              'concavity_worst', 'concave_points_worst', 
+              'symmetry_worst', 'fractal_dimension_worst')
+
+#Getting a look at the distribution
+table(bc$diagnosis)
+
+#Scatter plots color coded by response for just the first few variables
+pairs(bc[,3:6],col=bc$diagnosis)
+```
+
+So we can see from this pairs plot of just the first few variables,  seperation between the cancer and non cancer groups are pretty well seperated. Unfortunately we may not always see clear seperations but that does not necesarily mean that something like LDA or some other predcictive tool won't work.  It could be due to the fact we cant see the seperation of the groups unless we can actually see in higher dimensions.  One way to still get at this, is to conduct a PCA analysis and provide a some scatterplots for the first few PC's.  If seperation exists in the PC's, then a predictive model will probably do well.  
+
+Below we will conduct PCA on all of the predictors and plot the first few PC's against each other and look for speration.  The number of PCs to explore can be dictated by the scree plot.
+
+```{r}
+pc.bc<-prcomp(bc[,-c(1,2)],scale.=TRUE)
+pc.bc.scores<-pc.bc$x
+
+#Adding the response column to the PC's data frame
+pc.bc.scores<-data.frame(pc.bc.scores)
+pc.bc.scores$Diagnosis<-bc$diagnosis
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=Diagnosis), size=1)+
+  ggtitle("PCA of Breast Cancer Tumor Biopsies")
+
+ggplot(data = pc.bc.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=Diagnosis), size=1)+
+  ggtitle("PCA of Breast Cancer Tumor Biopsies")
+```
+
+So we can see in the first graphic a clear seperation exists for the two cancer groups.  So the PCA is telling us in effect what we already know from looking at the original variables.  The power of this approach is that you only need to look at 2-4 graphs each time, versus potentially having to examine massive scatterplot matrices to see if anything is there or not!
+
+##HW Assignment 2
+1.  Given what we see in the PCA analysis, its not too suprising that an LDA will probably do a good job here in predicting the categorical responses.  Perform an LDA on the original set of variables and calculate a confusion matrix.  Note: For this problem you do not have to do a training and test set split, lets recognize that the prediction performance that we obtain is protentially biased too low due to overfitting.  The main point here is that the accuracy is pretty good as expected via the PCA look.
+
+2. Consider now another great sanity check when building predictive models.  The code below takes the original data set and randomly scrambles the response variable.  This effectively breaks up any relationship that existed between the predictors and the response.  
+```{r}
+fake<-bc
+fake$diagnosis<-sample(fake$diagnosis,569,replace=F)
+```
+
+  a.  Plot PC1 and PC2 using the scrambled data set.  
+  b.  Perform an LDA with this data set and look at the confusion matrix.  Do they correspond?
+  
+Note:  This little trick is extremely helpful when you are predicting a response that is heavily imbalance (ex:  lots of Cancer obs, few Healthy ones ).  LDA and other algorithms can behave quite wierdly in extreme cases and prediction performances can look good all the time.  By conducting a seperate analysis on scrambled data, if the prediction performance still looks good, you've recognized a problem.  We can discuss this topic more as we get closer to finishing up Project 2.
+
+
+
