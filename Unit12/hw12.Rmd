@@ -1,0 +1,294 @@
+---
+title: "Unit 12 HW"
+author: "Ben Goodwin"
+date: "3/30/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+## Logistic Regression Conceptual questions
+
+  1.  Explain why logistic regression is needed to model a binary, categorical response.  Use terminology like "log odds" or "the logit function".
+     
+      Logistic regression models for binary response variables allow us to estimate the probability of the outcome (e.g., yes vs. no), based on the         values of the explanatory variables.  We use the logit function, logit(p) = ln(p/(1-p)), where p is the probability of the outcome occurring, in       order to determine the corresponding log odds of the outcome which we then model as a linear combination of the explanatory variables.
+      More basically, a linear function does not best model binary outcomes, if you look at a plot of a logistic function you can quiuckly see the          power for binary outcomes.
+  
+  2.  TRUE or FALSE?  Like LDA, logistic regression can only be used on continuous variables.
+      
+      False- Logistic regression holds with continuous or discrete variables
+  
+  3.  When using logistic regression in software, what is the underlying prediction being made?  Is it a "Yes/No" prediction or something else?  Explain.
+      
+      Logistic regression models the probability of the default class. (The binary outcome)
+  
+  4.  TRUE or FALSE?  Multicollinearity is not really a problem for LDA unless there is perfect correlation between predictors.  It is however a problem for logistic regression, especially as far as interpretation is concerned.
+  
+      True- Multicollinearity is a problem for logistic regression.
+  
+
+## Exercise #1  EDA for Logistic Regression
+Previously we looked at the the auto data set for multiple linear regression.  For illustration purposes, we will use this again but consider the response variable mpg as a binary categorical variable that denotes if the vehicle has "High" or "Low" mpg.  The following code recodes mpg as well as  cleans up a few variables.  I've removed the 3 cylinder and 5 cylinder vehicles as well as converted the Origin predictor to just have 2 levels (1- US or 2- Not US).  For this exercise, the "success" outcome for the response will be the "high" mpg category.  I've also went ahead and created a training and test set for later parts of the HW.   
+
+```{r}
+library(ISLR)
+newAuto<-Auto
+#Creating a categorical response for illustrative purposes.
+newAuto$mpg<-factor(ifelse(Auto$mpg>median(Auto$mpg),"High","Low"),levels=c("Low","High"))  #last level is the success
+newAuto$cylinders<-factor(newAuto$cylinders)
+#Removing data with 3 and 5 cylinders and making sure are R treats the predictor with just 3 levels and not 5.
+newAuto<-newAuto[-which(newAuto$cylinders %in% c(3,5)),]
+newAuto$cylinders<-factor(newAuto$cylinders)
+#Creating just two origins by combining 2 and 3 again for keeping things simple.
+newAuto$origin[which(newAuto$origin==3)]<-2
+newAuto$origin<-factor(newAuto$origin)
+#From here we are going to do a simple split of the data set and explore the training
+#data set newAuto.  The test will be held out for assessment of the model fits.
+set.seed(1234)
+index<-sample(1:385,250,replace=FALSE)
+test<-newAuto[-index,-9]
+train<-newAuto[index,-9]
+```
+
+The one key piece of code that should not go unnoticed from the above script is setting the levels for your response variable (3rd line).  Since we want the "success" outcome to be identified as High mpg, we have to make sure the last level of the factor is the success outcome.  Default is alphabetical order so if we did not force it, the success would be defined as "Low" and the interpretation of odds ratios for logistic regression models will have to reflect that difference.  You also need to keep this information consistent when looking at prediction performance graphics like ROC curves which we will discuss later.
+
+
+EDA for logistic regression is typically done in a very similar fashion as multiple linear regression, the key is just making sure you view things through the lens of a categorical response.  To get a global view of a lot of predictors at once, a scatter plot matrix can be viewed.  The package GGally provides a great way to view the categorical response and takes into account the data types of each predictor (low-orange , high-blue).
+
+```{r}
+library(GGally)
+ggpairs(newAuto,columns=2:8,aes(colour=mpg))
+```
+
+We can also conduct PCA using the continuous predictors as previously discussed.  Summary statistics should also be viewed as well as clustering tools which we will get in a little later.  If you want to take a closer look at some of the plots in the scatter matrix, the following codes can create individual plots and statistics to explore trends.  In this eamples, we can see that the percentage of high mpg vehicles increases as the number of cylinders decreases.  A similar trend can be observed with boxplots of weight.
+```{r}
+attach(newAuto)
+prop.table(table(mpg,cylinders),2)
+plot(mpg~cylinders,col=c("red","blue"))
+t(aggregate(weight~mpg,data=newAuto,summary))
+plot(weight~mpg,col=c("red","blue"))
+```
+
+5.  Using the summary statistics and scatter matrix provide previously or creating some of your own, briefly describe if any of the predictors look like they could be helpful in predicting the mpg categories (outside of cylinders and weight which was already mentioned).
+
+    Pairs plots are extremely useful as they are a great starting point for some EDA.  Based of this pairs plot, it seems like displacement and year are good canidates in predicting the mpg categories.
+    
+```{r}
+plot(newAuto$mpg,newAuto$displacement)
+
+plot(newAuto$mpg,newAuto$year)
+```
+    
+
+6.  We discussed previously that multicollinearity can happen among categorical as well as continuous predictors.  Our focuse has been on exploration of the continuous variables mainly.  For example, create a boxplot of weight by cylinders.  If there is no multicollinearity then the average weight should not depend on the cylnder of the car.  What does your graph suggest?  What about origin and cylinders... are they "correlated" visually? 
+
+```{r}
+ggplot(newAuto, aes(x=cylinders, y=weight,color=cylinders)) + 
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+                outlier.size=4)+
+  labs(title="Plot of weight by cylinder")
+
+#Based on this plot, the opposite is suggested.  Weight and cylinders are correlated visually.
+
+ggplot(newAuto, aes(x=origin, y=cylinders,color=cylinders)) + 
+  geom_point(outlier.colour="red", outlier.shape=8,
+                outlier.size=4)+
+  labs(title="Plot of origin by cylinder")
+
+#I don't think there is enough information here to make this determination, this is cateogrical data and does suggest at least some evidence of correlation. 
+
+```
+
+
+
+
+## Exercise #2  Simple logistic regression (making connections).
+Logistic regression allows for a more general strategy for modeling numerous predictors when the response is a binary categorical variable.  When you only deal with single predictor, you will get back previous methods that we have already covered.  For example consider the follow table which examines the relationship between mpg and origin.  The 2x2 table is provided below along with the ODDS ratio estimate which is interpreted as "The odds of car having high mpg for non US vehicles is xxx times higher than that for US vehicles".  
+
+```{r}
+library(epitools)
+mymat<-table(origin,mpg)
+mymat
+oddsratio.wald(mymat)
+
+```
+
+Running a logistic regression call in R is very similar to ordinary multipe linear regression (MLR).  The script below provides the function call using just Origin as a predictor. The traditional "summary" function can produce the regression coefficients, z-statistics, and p-values just like in MLR.  
+
+```{r}
+simple.log<-glm(mpg~origin,family="binomial",data=newAuto)
+summary(simple.log)
+```
+
+7.  Interpret the regression coefficient (in terms of an odds ratio) from the logistic regression model and compare your result to the 2x2 table analysis already covered.  What did you find?!?!  
+  
+    Each one unit change in origin2 will increase the log odds of MPG by 2.7280
+  
+## Exercise 3 Feature Selection for Logistic Regression
+
+The same strategies from MLR can be applied to the logistic regression setting.  When working with larger sets of predictors, this will be a very common strategy to implement.  The following code performs stepwise logistic regression using AIC as a stopping criterion. Forward and backward work similarly.  While it is possible to compute a test error metric at each step or via CV, we will work with AIC on the training data set for now.  (Many packages have this pretty well automated.  See caret for example. )
+
+```{r}
+library(MASS)
+library(tidyverse)
+library(car)
+full.log<-glm(mpg~.,family="binomial",data=train)
+step.log<-full.log %>% stepAIC(trace=FALSE)
+```
+
+We can use the "coef" function to see which predictors were included.  If the stepwise model was our final model, we can also use the "summary" function for testing.  For interpretation, I've included some additional code that produces the odds ratio tables for each of the coefficients.
+
+```{r}
+summary(step.log)
+exp(cbind("Odds ratio" = coef(step.log), confint.default(step.log, level = 0.95)))
+#Note:  You can also look at vifs.  vif(step.log)  #Last column is interpretted based off of rule of 5 or 10
+```
+
+8.  Using the stepwise regression model, interpret the regression coefficient for cylinder 6 (note the reference category is cylinder 4) and year.  Note:  The interpretation of cylinder 8 doesn't make a whole lot of sense.  This is due to the fact that cylinders are confounded (correlated) with quite a few of the other predictor variables in the model.  Explore EDA or we can talk more in office hours on seeing this if you are having trouble.
+
+  Each one unit change in cylider6 will increase the log odds of MPG by -1.403948
+  Each one unit change in year will incease the log odds of MPG by 0.568571
+
+
+LASSO is obtained in the exact same way for logistic as is MLR.  The only difference is to let R know that our response is categorical through the "family="binomial"" option.  Cross validation is used to obtain the optimal penalty value.  A final refit using the entire data set can then be obtained once the optimal penalty value is determined.  For this example, the object "finalmodel" produces the final lasso model.
+```{r}
+library(glmnet)
+dat.train.x <- model.matrix(mpg~cylinders+displacement+horsepower+weight+acceleration+year+origin-1,train)
+dat.train.y<-train[,1]
+cvfit <- cv.glmnet(dat.train.x, dat.train.y, family = "binomial", type.measure = "class", nlambda = 1000)
+plot(cvfit)
+coef(cvfit, s = "lambda.min")
+#CV misclassification error rate is little below .1
+print("CV Error Rate:")
+cvfit$cvm[which(cvfit$lambda==cvfit$lambda.min)]
+#Optimal penalty
+print("Penalty Value:")
+cvfit$lambda.min
+#For final model predictions go ahead and refit lasso using entire
+#data set
+finalmodel<-glmnet(dat.train.x, dat.train.y, family = "binomial",lambda=cvfit$lambda.min)
+```
+
+
+## Exercise 4  Confusion Matrix, Prediction Metrics, and choosing a cutoff
+Lets compare the stepwise and lasso models using the test set.  We have previously discussed the confusion matrix when covering LDA.  Previously in R, we worked with the LDA providing the predictions in terms of the categorie labels.  However the true predictions from the models are predictive probabalities.  To help get a handle on this, the following code makes predictions on the test set using the LASSO model.  Using the first 15 observations in the test set, I've printed off the true mpg status of the observation along with their predicted probabilities from the LASSO model.  Since the probabilities are the chances a vehicle has High mpg given the set of predictor values for that observation, we can see that there is pretty good correspondence with the probabilities and the the actual true status (small probabilities for Low mpg, large probabilities for High mpg).
+
+```{r}
+dat.test.x<-model.matrix(mpg~cylinders+displacement+horsepower+weight+acceleration+year+origin-1,test)
+fit.pred.lasso <- predict(finalmodel, newx = dat.test.x, type = "response")
+test$mpg[1:15]
+fit.pred.lasso[1:15]
+#Making predictions for stepwise as well for later
+fit.pred.step<-predict(step.log,newdata=test,type="response")
+```
+
+
+To compute the confusion matrix on the test set for the two models, you simply take the predicted probabilites and convert them to the categorical names based on some cut off value for the probabilities.  Most default settings is set to 0.5.  Once you converet the predicted probabilities to their class labels, the confusion matrix can be made.  (Note:  You could skip this step by changing the "type" option within the predict function but you should really understand whats going on here for later discussions.)
+
+```{r}
+#Lets use the predicted probablities to classify the observations and make a final confusion matrix for the two models.  We can use it to calculate error metrics.
+#Lets use a cutoff of 0.5 to make the classification.
+cutoff<-0.5
+class.lasso<-factor(ifelse(fit.pred.lasso>cutoff,"High","Low"),levels=c("Low","High"))
+class.step<-factor(ifelse(fit.pred.step>cutoff,"High","Low"),levels=c("Low","High"))
+#Confusion Matrix for Lasso
+conf.lasso<-table(class.lasso,test$mpg)
+print("Confusion matrix for LASSO")
+conf.lasso
+conf.step<-table(class.step,test$mpg)
+print("Confusion matrix for Stepwise")
+conf.step
+```
+
+We can compute the overall accuracy for the confusion matrix using the following code.  I've also included an additional code that allows for you to calculate overall accuracy without generating the table.
+
+```{r}
+#Accuracy of LASSO and Stepwise
+print("Overall accuracy for LASSO and Stepwise respectively")
+sum(diag(conf.lasso))/sum(conf.lasso)
+sum(diag(conf.step))/sum(conf.step)
+print("Alternative calculations of accuracy")
+#Rather than making the calculations from the table, we can compute them more quickly using the following code which just checks if the prediction matches the truth and then computes the proportion.
+mean(class.lasso==test$mpg)
+mean(class.step==test$mpg)
+```
+
+9.  The reason why predicted probabilities and converting them to categories to make predictions is so important is because choosing the cutoff of 0.5 is somewhat arbitrary.  In fact, if your training data set is highly imbalanced (like your project), the standard cutoff can lead to some problematic confusion matrices.  I've already suggested that you guys balance training data sets in advance.  This helps with keeping the cutoff at 0.5.  The alternative strategy is to change the cutoff.  The resulting confusion matrix from changing the cutoff could help/or hurt overall accuracy.  You just have to explore.  To get used to the idea, recompute the confusion matrix tables for the stepwise logistic regression model using a cutoff value of 0.1 and 0.9. Compare these two tables to the original tables that used a cutoff value of 0.5.  What is going on with the predictions, in particular how the misclassifications are happening? 
+
+```{r}
+cutoff<-0.1
+class.lasso<-factor(ifelse(fit.pred.lasso>cutoff,"High","Low"),levels=c("Low","High"))
+class.step<-factor(ifelse(fit.pred.step>cutoff,"High","Low"),levels=c("Low","High"))
+#Confusion Matrix for Lasso
+conf.lasso<-table(class.lasso,test$mpg)
+print("Confusion matrix for LASSO")
+conf.lasso
+conf.step<-table(class.step,test$mpg)
+print("Confusion matrix for Stepwise")
+conf.step
+
+cutoff<-0.9
+class.lasso<-factor(ifelse(fit.pred.lasso>cutoff,"High","Low"),levels=c("Low","High"))
+class.step<-factor(ifelse(fit.pred.step>cutoff,"High","Low"),levels=c("Low","High"))
+#Confusion Matrix for Lasso
+conf.lasso<-table(class.lasso,test$mpg)
+print("Confusion matrix for LASSO")
+conf.lasso
+conf.step<-table(class.step,test$mpg)
+print("Confusion matrix for Stepwise")
+conf.step
+```
+
+Based on the confusion matrices, we can see that a cut off of 0.9 significantly improves the classification rate.  
+
+## Sensitivity, Specificity, and the ROC Curve.  (NO more HW.  I will discuss these in class, R scripts are here so you already have some examples.)
+
+Depending on how deep you look into #9, one observation is that overall accuracy between the cut off of 0.1 and 0.5 is not that drastic.  They are both above 90 percent, but changing the cutoff away from 0.5 in this example creates some problems.  The issue is that the sensitivity and specificty of the model becomes unbalanced.  Lets take a look at the test set confusion matrix using the cut off of 0.1 for the stepwise model.  
+
+```{r, echo=FALSE}
+cutoff<-0.1
+class.step<-factor(ifelse(fit.pred.step>cutoff,"High","Low"),levels=c("Low","High"))
+conf.step<-table(class.step,test$mpg)
+conf.step
+```
+
+
+The overall accuracy is still quite good, right at 91% (123/135).  While that may sound good, there are some issues.  Looking at the table we can see that this particular cutoff yields predictions that predict the "High" category almost perfectly (71/72  98.6%).  Since "high" is our "success" label, this accuracy measurement is referred to as sensitivity.  It is also called the True Postive Rate (TPR).  Positive/Negative taking the place of the success/failure wording for the response variable.  While sensitivity here is awesome, the accuracy in predicting the "low" group is not as good (52/63  82%).  This accuracy measurement is referred to as the True Negative Rate (TRN).
+
+If we had left the cutoff at 0.5 for this model, the sensitivity and specificity would both be around 94% and 95%.  So you get good accuracy from both groups.  When data sets are unbalanced with the response classes, even though the overall accuracy may be good using a cutoff of 0.5, the sensitivity and specificity can be wildly different. In some cases, that might be okay to accept, in other cases you may really want to consider changing the cutoff to get those sensitivity and specificity metrics to a place that is more practical for the problem at hand. I'll provide some examples in class on where you might want to focus on sensitivity or specificity as the overall metric to compare models rather than an overall accuracy measurment.
+
+## ROC Curves
+With the ability to change the cutoffs, the natural question is what would be the best cutoff to use.  There are numerous ways to do this, but one of the most common approaches is to view predictability of your models through the ROC curve.  What the ROC curve does is consider a wide range of possible cutoff values all the way from 0 up to 1.  It computes sensitivity and specificity measurements from each of the cut off values it considers.  It then plots the sensitivity measurements on the y axis versus 1-specificity on the x axis.  A plot of the ROC curve for the LASSO model is below.
+
+```{r}
+library(ROCR)
+results.lasso<-prediction(fit.pred.lasso, test$mpg,label.ordering=c("Low","High"))
+roc.lasso = performance(results.lasso, measure = "tpr", x.measure = "fpr")
+plot(roc.lasso,colorize = TRUE)
+abline(a=0, b= 1)
+```
+
+What we are generally looking for with the ROC curve is that a good model will produce good sensitivity values (TPR) close to 1 as well as good specificity values (TNR) that should should be close to 1.  Since the x-axis is 1-specficity, we would like our models to be very small on this scale.  1-specificity is also refered to as the False Positive Rate which we see in the graph.  So when we examine the curve, if a model is able to really predict well, then most of the cutoffs considered will yield points in the top left corner of the graph.  Of course if the cut off is really small or large, the sensitivity or specificity will faulter and you will get points in the bottom left and top right.  
+
+If your model does not do very well for any cut off, then the curve will tend to hover around the 45 degree line.  This serves as the sanity check. If your model's ROC curve is there, then you might as well just randomly pick because your predictors are not really providing anything helpful. 
+
+The color legend on the ROC curve can be turned off.  When turned on it gives you a sense of where the optimal cutoff value is.  The best balance of sensitivity and specificity values corresponds to the yellow to light green section of the curve.  This suggests that an optimal cutoff value could be somewhere around 0.6 or maybe even as high as 0.7.  When making predictions for future data sets you could use this cutoff to make predictions and validate if the cutoff is working well.
+
+The other advantage that the ROC curve has is that it can provide a general way of comparing models.  The following code takes the LASSO, stepwise, and a simple logistic model using just 2 predictors, and overlays their ROC curves from the test set.  The LASSO and Stepwise curves are very similar.  However we can see that the simple model with only two predictors doesn't perform as well.  We could also verify this by comparing confusion matrices, overall accuracy, sensitivity, and specificity between the models for a given cutoff.
+```{r}
+results.step<-prediction(fit.pred.step, test$mpg,label.ordering=c("Low","High"))
+roc.step = performance(results.step, measure = "tpr", x.measure = "fpr")
+simple.log<-glm(mpg~origin+horsepower,family="binomial",data=train)
+fit.pred.origin<-predict(simple.log,newdata=test,type="response")
+results.origin<-prediction(fit.pred.origin,test$mpg,label.ordering=c("Low","High"))
+roc.origin=performance(results.origin,measure = "tpr", x.measure = "fpr")
+plot( roc.lasso)
+plot(roc.step,col="orange", add = TRUE)
+plot(roc.origin,col="blue",add=TRUE)
+legend("bottomright",legend=c("Lasso","Stepwise","Origin/Horsepower Only"),col=c("black","orange","blue"),lty=1,lwd=1)
+abline(a=0, b= 1)
+```
+
+
+Note: When fitting multiple models like in your project, it is typically accepted to choose an optimal threshold for each model to give them each the best chance to succeed.  You do not have to force yourself to use the same cutoff across the board.
